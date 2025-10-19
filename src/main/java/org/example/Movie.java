@@ -7,10 +7,11 @@ import java.sql.Array;
 
 public class Movie {
     private final String title;
+    public String getTitle() { return this.title; }
     private final String description;
     private final String[] descriptionWords;
-    private final int descriptionWordCount;
     public String[] getDescriptionWords() { return this.descriptionWords; }
+    private final int descriptionWordCount;
     public int getDescriptionWordCount() { return this.descriptionWordCount; }
 
     public Movie(String title, String description) {

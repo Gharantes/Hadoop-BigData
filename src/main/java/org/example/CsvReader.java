@@ -19,6 +19,7 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 import org.example.utils.SetupOutput;
+import org.example.utils.StringUtils;
 
 public class CsvReader {
     public static void main(String[] args) throws Exception {
@@ -52,10 +53,11 @@ public class CsvReader {
         protected void setup(Mapper<LongWritable, Text, Text, IntWritable>.Context context) throws IOException, InterruptedException {
             Path path = new Path(context.getConfiguration().get("csv_path"));
             org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(context.getConfiguration());
+            Text textWord = new Text();
             boolean skippedHeader = false;
             Movie longestDescriptionMovie = null;
             Movie shortestDescriptionMovie = null;
-            int totalWords = 0;
+            WordCounter wordCounter = new WordCounter();
 
             Reader reader = new InputStreamReader(fs.open(path), StandardCharsets.UTF_8);
             CSVParser parser = CSVFormat.DEFAULT.parse(reader);
@@ -66,7 +68,7 @@ public class CsvReader {
                 }
                 if (record.size() < 12) continue;
                 Movie movie = new Movie(record.get(2), record.get(11));
-                totalWords += movie.getDescriptionWordCount();
+                wordCounter.add(movie);
 
                 if (longestDescriptionMovie == null) {
                     longestDescriptionMovie = movie;
@@ -80,16 +82,27 @@ public class CsvReader {
                 if (shortestDescriptionMovie.compare(movie) < 0) {
                     shortestDescriptionMovie = movie;
                 }
+                for (String word : movie.getDescriptionWords()) {
+                    if (word.isEmpty()) { continue; }
+                    // if (StringUtils.isDigit(word)) { continue; }
+                    textWord.set(word);
+                    context.write(textWord, one);
+                }
             }
             assert longestDescriptionMovie != null;
             context.write(longestDescriptionMovie.asText("Descrição Mais Longa"), one);
             context.write(shortestDescriptionMovie.asText("Descrição Mais Curta"), one);
-            context.write(new Text("[Total de Palavras nas Descrições]: " + totalWords), one);
+            context.write(wordCounter.asText(), one);
         }
         public void map(LongWritable key, Text value, Context context) {}
     }
     public static class ReduceForCsv extends Reducer<Text, IntWritable, Text, IntWritable> {
         public void reduce(Text word, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            if (word.toString().startsWith("[Descrição") || word.toString().startsWith("[Total de Palavras")) {
+                context.write(word, null);
+                return;
+            }
+
             int sum = 0;
             for (IntWritable value : values) {
                 sum += value.get();
