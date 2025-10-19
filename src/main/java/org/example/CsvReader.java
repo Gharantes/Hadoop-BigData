@@ -2,8 +2,6 @@ package org.example;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.text.Normalizer;
-import java.util.regex.Pattern;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -20,7 +18,7 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
-import org.example.setup.SetupOutput;
+import org.example.utils.SetupOutput;
 
 public class CsvReader {
     public static void main(String[] args) throws Exception {
@@ -49,58 +47,54 @@ public class CsvReader {
     }
     public static class MapForCsv extends Mapper<LongWritable, Text, Text, IntWritable> {
         private final static IntWritable one = new IntWritable(1);
-        private final Text wordText = new Text();
 
         @Override
         protected void setup(Mapper<LongWritable, Text, Text, IntWritable>.Context context) throws IOException, InterruptedException {
             Path path = new Path(context.getConfiguration().get("csv_path"));
             org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(context.getConfiguration());
+            boolean skippedHeader = false;
+            Movie longestDescriptionMovie = null;
+            Movie shortestDescriptionMovie = null;
+            int totalWords = 0;
 
             Reader reader = new InputStreamReader(fs.open(path), StandardCharsets.UTF_8);
             CSVParser parser = CSVFormat.DEFAULT.parse(reader);
-
             for (CSVRecord record : parser) {
+                if (!skippedHeader) {
+                    skippedHeader = true;
+                    continue;
+                }
                 if (record.size() < 12) continue;
-                iterateWords(context, record.get(2)); // Title
-                iterateWords(context, record.get(11)); // Description
-            }
-        }
-        private void iterateWords(Context context, String col) throws IOException, InterruptedException {
-            col = fixCol(col);
-            String[] words = col.split("\\s+");
-            for (String word : words) {
-                word = fixWord(word);
-                if (!word.isEmpty()) {
-                    wordText.set(word);
-                    context.write(wordText, one);
+                Movie movie = new Movie(record.get(2), record.get(11));
+                totalWords += movie.getDescriptionWordCount();
+
+                if (longestDescriptionMovie == null) {
+                    longestDescriptionMovie = movie;
+                }
+                if (shortestDescriptionMovie == null) {
+                    shortestDescriptionMovie = movie;
+                }
+                if (longestDescriptionMovie.compare(movie) > 0) {
+                    longestDescriptionMovie = movie;
+                }
+                if (shortestDescriptionMovie.compare(movie) < 0) {
+                    shortestDescriptionMovie = movie;
                 }
             }
-        }
-        private String fixCol(String originalCol) {
-            if (originalCol == null) { return null; }
-            String newCol = originalCol;
-            newCol = newCol.toLowerCase();
-            newCol = Normalizer.normalize(newCol, Normalizer.Form.NFD);
-            newCol = newCol.replaceAll("\\p{InCombiningDiacriticalMarks}+", "");            newCol = newCol.trim();
-            newCol = newCol.replaceAll("[^a-z0-9]", " ");
-            newCol = newCol.trim();
-            return newCol;
-        }
-        private String fixWord(String originalWord) {
-            String newWord = originalWord;
-            newWord = newWord.trim();
-            if (newWord.matches("\\d+")) { return ""; }
-            return newWord;
+            assert longestDescriptionMovie != null;
+            context.write(longestDescriptionMovie.asText("Descrição Mais Longa"), one);
+            context.write(shortestDescriptionMovie.asText("Descrição Mais Curta"), one);
+            context.write(new Text("[Total de Palavras nas Descrições]: " + totalWords), one);
         }
         public void map(LongWritable key, Text value, Context context) {}
     }
     public static class ReduceForCsv extends Reducer<Text, IntWritable, Text, IntWritable> {
-        public void reduce(Text word, Iterable<IntWritable> values, Context con) throws IOException, InterruptedException {
+        public void reduce(Text word, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
             int sum = 0;
             for (IntWritable value : values) {
                 sum += value.get();
             }
-            con.write(word, new IntWritable(sum));
+            context.write(word, new IntWritable(sum));
         }
     }
 }

@@ -1,4 +1,4 @@
-package org.example.setup;
+package org.example.utils;
 
 public class SetupLogs {
     public void main () {
