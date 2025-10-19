@@ -31,10 +31,10 @@ public class Movie {
     }
     public Text asText(String base) {
         String str = "";
-        str = str.concat("[" + base + "]: ");
-        str = str.concat(this.descriptionWordCount + " palavras\n");
-        str = str.concat("[Titulo]: " + this.title + "\n");
-        str = str.concat("[Descrição]: " + this.description + "\n");
+        str = str.concat("[" + base + "]\n");
+        str = str.concat("Palavras: " + this.descriptionWordCount + "\n");
+        str = str.concat("Titulo: " + this.title + "\n");
+        str = str.concat("Descrição: " + this.description + "\n");
         Text text = new Text();
         text.set(str);
         return text;

@@ -9,7 +9,7 @@ public class WordCounter {
     }
     public Text asText() {
         Text text = new Text();
-        String s = "[Total de Palavras nas Descrições]: " + this.total + "\n";
+        String s = "[Total de Palavras nas Descrições]: " + this.total + " palavras\n";
         text.set(s);
         return text;
     }

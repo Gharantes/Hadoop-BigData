@@ -2,6 +2,8 @@ package org.example;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.function.Predicate;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -97,6 +99,8 @@ public class CsvReader {
         public void map(LongWritable key, Text value, Context context) {}
     }
     public static class ReduceForCsv extends Reducer<Text, IntWritable, Text, IntWritable> {
+        private final Map<Integer, ArrayList<String>> frequencyMap = new HashMap<>();
+
         public void reduce(Text word, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
             if (word.toString().startsWith("[Descrição") || word.toString().startsWith("[Total de Palavras")) {
                 context.write(word, null);
@@ -107,7 +111,23 @@ public class CsvReader {
             for (IntWritable value : values) {
                 sum += value.get();
             }
-            context.write(word, new IntWritable(sum));
+
+            frequencyMap
+                    .computeIfAbsent(sum, k -> new ArrayList<>())
+                    .add(word.toString());
+        }
+        @Override
+        protected void cleanup(Context context) throws IOException, InterruptedException {
+            FrequencyManager manager = new FrequencyManager(this.frequencyMap);
+
+            context.write(new Text("[Palavras menos frequentes (desconsiderando dígitos)]:"), null);
+            context.write(manager.leastFrequent(StringUtils::isDigit), null);
+
+            context.write(new Text("[Palavras menos frequentes (desconsiderando palavras com dígitos)]:"), null);
+            context.write(manager.leastFrequent(StringUtils::hasDigit), null);
+
+            context.write(new Text("[Palavras mais frequentes (desconsiderando stopwords)]:"), null);
+            context.write(manager.mostFrequent(), null);
         }
     }
 }
