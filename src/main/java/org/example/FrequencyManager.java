@@ -12,11 +12,17 @@ public class FrequencyManager {
     private final Map<Integer, ArrayList<String>> frequencyMap;
     private final List<Integer> sortedKeys;
 
+    /** COnstructor **/
     public FrequencyManager(Map<Integer, ArrayList<String>> frequencyMap) {
         this.frequencyMap = frequencyMap;
         this.sortedKeys = new ArrayList<>(frequencyMap.keySet());
         Collections.sort(this.sortedKeys);
     }
+    /** Constrói a string de menos frequentes.
+     *  Procura pelas menores chaves e monta a string com todas
+     * as palavras com aquela quantidade.
+     *  Foi feito desse jeito porque tinha muita palavra de 1 vez
+     * **/
     public Text leastFrequent(Predicate<String> filterFn) {
         StringBuilder stringBuilder = new StringBuilder();
         int count = 0;
@@ -38,6 +44,9 @@ public class FrequencyManager {
         return new Text(stringBuilder.toString());
     }
 
+    /** Constrói a string de mais frequentes
+     * Diferente do de cima, nessa versão, mesmo se duas palavras tiverem aparecido
+     * o mesmo número de vezes, vão ser gerados em 2 linhas diferentes. **/
     public Text mostFrequent() {
         StringBuilder stringBuilder = new StringBuilder();
         int count = 0;

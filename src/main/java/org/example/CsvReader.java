@@ -3,7 +3,6 @@ package org.example;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.function.Predicate;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -34,7 +33,7 @@ public class CsvReader {
         Path output = new Path(files[1]);
 
         c.set("csv_path", files[0]);
-        new SetupOutput().main(fs, output);
+        new SetupOutput().delete(fs, output);
 
         Job j = Job.getInstance(c, "csv");
         j.setJarByClass(CsvReader.class);
@@ -51,8 +50,9 @@ public class CsvReader {
     public static class MapForCsv extends Mapper<LongWritable, Text, Text, IntWritable> {
         private final static IntWritable one = new IntWritable(1);
 
-        @Override
-        protected void setup(Mapper<LongWritable, Text, Text, IntWritable>.Context context) throws IOException, InterruptedException {
+        /** Teve que fazer no setup porque tem um linkbreak no meio do arquivo que
+         * o hadoop não consegue entender quando o processamento é feito linha por linha. */
+        @Override protected void setup(Mapper<LongWritable, Text, Text, IntWritable>.Context context) throws IOException, InterruptedException {
             Path path = new Path(context.getConfiguration().get("csv_path"));
             org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(context.getConfiguration());
             Text textWord = new Text();
@@ -61,9 +61,11 @@ public class CsvReader {
             Movie shortestDescriptionMovie = null;
             WordCounter wordCounter = new WordCounter();
 
+            /* Lê o arquivo, e itera cada linha dele */
             Reader reader = new InputStreamReader(fs.open(path), StandardCharsets.UTF_8);
             CSVParser parser = CSVFormat.DEFAULT.parse(reader);
             for (CSVRecord record : parser) {
+                /* Pula a primeira linha, que contém o cabeçalho */
                 if (!skippedHeader) {
                     skippedHeader = true;
                     continue;
@@ -84,14 +86,16 @@ public class CsvReader {
                 if (shortestDescriptionMovie.compare(movie) < 0) {
                     shortestDescriptionMovie = movie;
                 }
+                /* Para cada palavra da descrição, faz registro no contexto do Hadoop,
+                 * para poder usar no reduce. */
                 for (String word : movie.getDescriptionWords()) {
                     if (word.isEmpty()) { continue; }
-                    // if (StringUtils.isDigit(word)) { continue; }
                     textWord.set(word);
                     context.write(textWord, one);
                 }
             }
             assert longestDescriptionMovie != null;
+            /* Cria registro das linhas especiais */
             context.write(longestDescriptionMovie.asText("Descrição Mais Longa"), one);
             context.write(shortestDescriptionMovie.asText("Descrição Mais Curta"), one);
             context.write(wordCounter.asText(), one);
@@ -102,16 +106,19 @@ public class CsvReader {
         private final Map<Integer, ArrayList<String>> frequencyMap = new HashMap<>();
 
         public void reduce(Text word, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            /* Caso a linha seja uma das linhas especiais, já escreve
+             * no arquivo resultado direto. */
             if (word.toString().startsWith("[Descrição") || word.toString().startsWith("[Total de Palavras")) {
                 context.write(word, null);
                 return;
             }
-
+            /* Pega quantas vezes certa palavra por registrada */
             int sum = 0;
             for (IntWritable value : values) {
                 sum += value.get();
             }
-
+            /* Insere em um mapa, onde a chave é a quantidade.
+             * A palavvra em si é adicionada numa lista */
             frequencyMap
                     .computeIfAbsent(sum, k -> new ArrayList<>())
                     .add(word.toString());
