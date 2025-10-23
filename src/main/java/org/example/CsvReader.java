@@ -25,6 +25,10 @@ import org.example.utils.StringUtils;
 public class CsvReader {
     public static void main(String[] args) throws Exception {
         Configuration c = new Configuration();
+        c.set("mapreduce.framework.name", "local");          // Run in local mode
+        c.set("mapreduce.jobtracker.address", "local");      // Use local JobTracker
+        c.set("fs.defaultFS", "file:///");
+
         FileSystem fs = FileSystem.get(c);
 
         String[] files = new GenericOptionsParser(c, args).getRemainingArgs();
