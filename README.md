@@ -60,7 +60,7 @@ cd Desktop
 hdfs dfs -put ./netflix_titles.csv /user/raindrop/input/
 
 # Executar Processo:
-hadoop jar ./target/Hadoop-BigData-1.0-SNAPSHOT.jar org.example.CsvReader /user/raindrop/input/netflix_titles.csv /user/raindrop/output/
+hadoop jar ./target/Hadoop-BigData-1.0-SNAPSHOT.jar org.example.HadoopMain /user/raindrop/input/netflix_titles.csv /user/raindrop/output/
 
 # Trazer arquivo do Hadoop pro Local:
 mkdir -p ~/Desktop/DEV/Hadoop-BigData/output_local

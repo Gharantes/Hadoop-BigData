@@ -33,7 +33,9 @@ public class StringUtils {
     private static final Set<String> STOPWORDS = new HashSet<>(Arrays.asList(
             "a", "and", "the", "of", "to", "with", "is", "in", "his",
             "her", "an", "for", "on", "their", "when", "this", "from",
-            "as", "by", "he", "that", "who", "but", "at", "into"
+            "as", "by", "he", "that", "who", "but", "at", "into", "i",
+            "you", "all", "go", "my", "one", "de", "me", "s", "el", "up",
+            "new", "after", "she", "him", "they", "two", "out", "must"
     ));
     /** Retorna TRUE se for qualquer uma das palavras acima. **/
     public static boolean isStopword(String str) {
